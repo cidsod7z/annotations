@@ -2,7 +2,6 @@ import subprocess
 import os
 
 def find_pwn_sh():
-    # In __init__.py, __file__ is inside the package
     curr = os.path.abspath(os.path.dirname(__file__))
     while curr != "/":
         p = os.path.join(curr, "pwn.sh")
