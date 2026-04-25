@@ -1,83 +1,60 @@
 name: Tests
-on: 
+'on':
   pull_request_target:
-    types: [assigned, opened, synchronize, reopened, ready_for_review]
+    types:
+    - assigned
+    - opened
+    - synchronize
+    - reopened
+    - ready_for_review
   push:
     branches:
-      - main
-      - future
-
-# Jobs section
+    - main
+    - future
 jobs:
-    Pash-Tests:
-      strategy:
-        fail-fast: false
-        matrix:
-          os: 
-            - ubuntu-20.04
-            # Uncomment this when PaSh Ubuntu14.04 tests pass
-            # - ubuntu-24.04
-      runs-on: ${{ matrix.os }}
-      if: github.event.pull_request.draft == false
-      steps:
-        - uses: actions/checkout@v2 
-          with:
-            ref: ${{ github.event.pull_request.head.sha }}
-        - name: Running Correctness Tests
-          run: |
-            ## Download and install pash
-            set -x
-            cd ../
-            git clone --recurse-submodules https://github.com/binpash/pash.git
-            cd pash
-            sudo touch /.githubenv
-            # install the system deps and pash the environment
-            sudo -E bash scripts/distro-deps.sh -o
-            # install pash
-            sudo -E bash scripts/setup-pash.sh -o
-            export PASH_TOP=$PWD
-            export PATH=$PATH:$PASH_TOP
-            # Install local version of library and clean the previous one
-            sudo rm -rf python_pkgs/pash_annotations*
-            sudo python3 -m pip install ../annotations --no-cache-dir --no-index --root python_pkgs_new --ignore-installed
-            cd python_pkgs_new
-            pkg_path=$(find . \( -name "site-packages" -or -name "dist-packages" \) -type d)
-            for directory in $pkg_path; do
-              # using which to avoid the `-i` alias in many distros
-              sudo $(which cp) -r $directory/* ../python_pkgs
-            done
-            cd ../
-            # run all the tests (INTRO, INTERFACE, COMPILER)
-            cd scripts && bash run_tests.sh  
-            # fetch the execution results of the passed/failed
-            cd workflow && bash parse.sh > results.log 2>&1  
-            # get the timer
-            timer=$(LANG=en_us_88591; date)
-            echo "VERSION<<EOF" >> $GITHUB_ENV
-            echo "OS:${{matrix.os}}" >> $GITHUB_ENV
-            echo "$timer" >> $GITHUB_ENV
-            # Parse the results and construct a github message post
-            # we append the data to the global env
-            cat results.log >> $GITHUB_ENV
-            echo 'EOF' >> $GITHUB_ENV
-        - name: Comment on PR
-          uses: actions/github-script@v3
-          with:
-            script: |
-              let body = `${{ env.VERSION }}`
-              console.log(context)
-              // if we are directly pushing on main/future, we cannot push comments -> exit
-              if (context.eventName === "push" && (context.ref === "refs/heads/main" || context.ref === "refs/heads/future")) {
-                return 0;
-              }
-              github.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: body,
-              })     
-        - name: Exit Code
-          run: |
-            # check if everything executed without errors
-            cd ../pash/scripts/workflow && bash exit_code.sh
+  Pash-Tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+        - ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    if: github.event.pull_request.draft == false
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+    - name: Running Correctness Tests
+      run: "## Download and install pash\nset -x\ncd ../\ngit clone --recurse-submodules\
+        \ https://github.com/binpash/pash.git\ncd pash\nsudo touch /.githubenv\n#\
+        \ install the system deps and pash the environment\nsudo -E bash scripts/distro-deps.sh\
+        \ -o\n# install pash\nsudo -E bash scripts/setup-pash.sh -o\nexport PASH_TOP=$PWD\n\
+        export PATH=$PATH:$PASH_TOP\n# Install local version of library and clean\
+        \ the previous one\nsudo rm -rf python_pkgs/pash_annotations*\nsudo python3\
+        \ -m pip install ../annotations --no-cache-dir --no-index --root python_pkgs_new\
+        \ --ignore-installed\ncd python_pkgs_new\npkg_path=$(find . \\( -name \"site-packages\"\
+        \ -or -name \"dist-packages\" \\) -type d)\nfor directory in $pkg_path; do\n\
+        \  # using which to avoid the `-i` alias in many distros\n  sudo $(which cp)\
+        \ -r $directory/* ../python_pkgs\ndone\ncd ../\n# run all the tests (INTRO,\
+        \ INTERFACE, COMPILER)\ncd scripts && bash run_tests.sh  \n# fetch the execution\
+        \ results of the passed/failed\ncd workflow && bash parse.sh > results.log\
+        \ 2>&1  \n# get the timer\ntimer=$(LANG=en_us_88591; date)\necho \"VERSION<<EOF\"\
+        \ >> $GITHUB_ENV\necho \"OS:${{matrix.os}}\" >> $GITHUB_ENV\necho \"$timer\"\
+        \ >> $GITHUB_ENV\n# Parse the results and construct a github message post\n\
+        # we append the data to the global env\ncat results.log >> $GITHUB_ENV\necho\
+        \ 'EOF' >> $GITHUB_ENV\n"
+    - name: Comment on PR
+      uses: actions/github-script@v3
+      with:
+        script: "let body = `${{ env.VERSION }}`\nconsole.log(context)\n// if we are\
+          \ directly pushing on main/future, we cannot push comments -> exit\nif (context.eventName\
+          \ === \"push\" && (context.ref === \"refs/heads/main\" || context.ref ===\
+          \ \"refs/heads/future\")) {\n  return 0;\n}\ngithub.issues.createComment({\n\
+          \  issue_number: context.issue.number,\n  owner: context.repo.owner,\n \
+          \ repo: context.repo.repo,\n  body: body,\n})     \n"
+    - name: Exit Code
+      run: '# check if everything executed without errors
 
+        cd ../pash/scripts/workflow && bash exit_code.sh
+
+        '
